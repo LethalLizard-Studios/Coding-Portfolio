@@ -1,0 +1,1 @@
+Inside my Money Manager Singleton I use a Projected Integer Value. This is a tactic used to change the value and bits stored on memory making it a lot harder to find in programs like Cheat Engine. Another solution would be to store the value on a database and retrieve and verify all changes made.
