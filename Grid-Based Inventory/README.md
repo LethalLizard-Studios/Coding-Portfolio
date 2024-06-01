@@ -1,0 +1,1 @@
+Some parts of the Grid-Based Inventory system. SANCTION has a lot of features when it comes to inventory management so the code could be far more concise if those features did not exist. The Item struct is used to easily create, save, and load new or existing items.
