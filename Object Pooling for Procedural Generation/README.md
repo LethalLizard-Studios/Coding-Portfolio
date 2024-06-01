@@ -1,0 +1,1 @@
+A struct with a constructor is used to generate object pools of prefabs for procedural generation. Pooling is a common practice in game development, it prevents lag that occurs with Instantiating/Creating new objects. You start by instantiating a specific number of objects and then recycle them from that pool rather than destroying and creating new ones.
