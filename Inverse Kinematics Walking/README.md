@@ -1,0 +1,1 @@
+Uses Inverse Kinematics to procedurally animate legs with the help of Unity's Animation Rigging package. Based of the values set and shown each foot will move to the desired location which is retrieved from the raycast hit.
