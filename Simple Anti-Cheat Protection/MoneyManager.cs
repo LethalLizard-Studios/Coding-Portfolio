@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using UnityEditor;
 
 /* This is a code snippet from a full system inside of SANCTION
 -- LICENSE MIT
@@ -9,9 +10,10 @@ using TMPro;
 public class MoneyManager : MonoBehaviour
 {
     // Protected against Cheat Engine
-    private ProjectedInt32Value money = new(0);
+    private ProjectedInt32Value _money = new(0);
+    private string _balanceHash;
 
-    public int Balance => money.GetValue();
+    public int Balance => _money.GetValue();
 
     [Header("UI")]
     [SerializeField] private TextMeshProUGUI balanceText;
@@ -51,10 +53,22 @@ public class MoneyManager : MonoBehaviour
     public void LoadSavedBalance(int amount)
     {
         SetBalance(amount);
+
+        // Initialize the hash
+        _balanceHash = HashUtility.GenerateHash(_money.GetValue());
+        if (!VerifyBalanceIntegrity())
+        {
+            LogicLogger.Warning(this, "Saved balance has been tampered with.");
+        }
     }
 
     public void Earn(int amount)
     {
+        if (!VerifyBalanceIntegrity())
+        {
+            LogicLogger.Warning(this, "Balance integrity check failed. Possible tampering detected.");
+        }
+
         if (amount <= 0)
         {
             LogicLogger.Warning(this, "Attempted to earn a non-positive amount.");
@@ -71,6 +85,11 @@ public class MoneyManager : MonoBehaviour
 
     public void Spend(int amount)
     {
+        if (!VerifyBalanceIntegrity())
+        {
+            LogicLogger.Warning(this, "Balance integrity check failed. Possible tampering detected.");
+        }
+
         if (amount <= 0)
         {
             LogicLogger.Warning(this, "Attempted to spend a non-positive amount.");
@@ -149,8 +168,15 @@ public class MoneyManager : MonoBehaviour
 
     private void SetBalance(int amount)
     {
-        money.SetValue(Mathf.Clamp(amount, 0, MAX_BALANCE));
+        _money.SetValue(Mathf.Clamp(amount, 0, MAX_BALANCE));
+        _balanceHash = HashUtility.GenerateHash(_money);
         RefreshBalanceUI();
+    }
+
+    private bool VerifyBalanceIntegrity()
+    {
+        // Verify against the hash
+        return HashUtilities.VerifyHash(_money, _balanceHash);
     }
 
     private void RefreshBalanceUI()
