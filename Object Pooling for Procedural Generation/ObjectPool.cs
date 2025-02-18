@@ -1,8 +1,8 @@
 using UnityEngine;
 
-/* All Rights Reserved to Leland T Carter of LethalLizard Studios.
- * @status COMPLETE
- * @date 2022-10-28
+/* This is a code snippet from a full system inside of SANCTION
+-- LICENSE MIT
+-- @author: Leland Carter
 */
 
 public struct ObjectPool
