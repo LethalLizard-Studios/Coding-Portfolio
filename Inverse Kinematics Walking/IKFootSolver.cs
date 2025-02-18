@@ -1,28 +1,20 @@
 using UnityEngine;
 
-/* All Rights Reserved to Leland T Carter of LethalLizard Studios.
- * @status COMPLETE
- * @date 2021-07-15
+/* This is a code snippet from a full system inside of SANCTION
+-- LICENSE MIT
+-- @author: Leland Carter
 */
 
 namespace LLS.IK
 {
     public class IKFootSolver : MonoBehaviour
     {
-        [SerializeField]
-        private LayerMask walkableLayer;
+        [SerializeField] private LayerMask walkableLayer;
+        [SerializeField] private Transform body;
+        [SerializeField] private IKFootSolver oppositeFoot;
+        [SerializeField] private float speed = 5;
 
-        [SerializeField]
-        private Transform body;
-
-        [SerializeField]
-        private IKFootSolver oppositeFoot;
-
-        [SerializeField]
-        private float speed = 5;
-
-        [SerializeField]
-        private Vector3 footPositionOffset, footEulerRotationOffset;
+        [SerializeField] private Vector3 footPositionOffset, footEulerRotationOffset;
 
         private float _footSpacing, _lerpSpeed;
 
@@ -39,7 +31,7 @@ namespace LLS.IK
 
         private void Start()
         {
-            //Initialize private values
+            // Initialize private values
             _footSpacing = transform.localPosition.x;
             _currentPosition = _newPosition = _oldPosition = transform.position;
             _currentNormal = _newNormal = _oldNormal = transform.up;
@@ -65,7 +57,7 @@ namespace LLS.IK
                     int dir = body.InverseTransformPoint(
                         hit.point).z > body.InverseTransformPoint(_newPosition).z ? 1 : -1;
 
-                    //Set the steps position based of the bodies rotation, direction, and steps set length
+                    // Set the steps position based of the bodies rotation, direction, and steps set length
                     _newPosition = hit.point + (body.forward * (dir * STEP_LENGTH));
                     _newNormal = hit.normal;
 
@@ -75,7 +67,7 @@ namespace LLS.IK
 
             if (_lerpSpeed < 1)
             {
-                //Step towards the bodies forward
+                // Step towards the bodies forward
                 Vector3 targetPosition = Vector3.Lerp(_oldPosition, _newPosition, _lerpSpeed);
                 targetPosition.y += Mathf.Sin(_lerpSpeed * Mathf.PI) * STEP_HEIGHT;
 
@@ -86,13 +78,13 @@ namespace LLS.IK
             }
             else
             {
-                //Set most recent steps position and normal to old
+                // Set most recent steps position and normal to old
                 _oldPosition = _newPosition;
                 _oldNormal = _newNormal;
             }
         }
 
-        //Debug visuals
+        // Debug visuals
         private void OnDrawGizmos()
         {
             Gizmos.color = Color.red;
