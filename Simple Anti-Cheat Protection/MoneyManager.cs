@@ -1,97 +1,160 @@
 using UnityEngine;
 using TMPro;
 
-/* All rights reserved to Leland T Carter of LethalLizard Studios.
- * @status COMPLETE
- * @date 2022-07-19
+/* This is a code snippet from a full system inside of SANCTION
+-- LICENSE MIT
+-- @author: Leland Carter
 */
 
-public class MoneyManager : Singleton<MoneyManager>
+public class MoneyManager : MonoBehaviour
 {
-    //Protected against Cheat Engine
+    // Protected against Cheat Engine
     private ProjectedInt32Value money = new(0);
 
-    public int Balance() { return money.GetValue(); }
+    public int Balance => money.GetValue();
 
-    [SerializeField] private TextMeshProUGUI moneyTxt;
-    [SerializeField] private InventoryController inventory;
-    [SerializeField] private LootManager loot;
+    [Header("UI")]
+    [SerializeField] private TextMeshProUGUI balanceText;
+    [SerializeField] private TextMeshProUGUI sendersNameText;
 
-    [SerializeField]
-    private FMODUnity.EventReference purchaseEvent;
-    [SerializeField]
-    private FMODUnity.EventReference sellEvent; 
-    [SerializeField]
-    private FMODUnity.EventReference insufficientEvent;
+    [Header("Inventory")]
+    [SerializeField] private LootManager lootManager;
+    [SerializeField] private InventoryController merchantInventory;
+    [SerializeField] private InventoryController playerInventory;
 
-    public InventoryController merchantInventory;
-    public TextMeshProUGUI nameTxt;
+    [HideInInspector] public Merchant mostRecentMerchant;
 
-    [HideInInspector] public Merchant lastMerchant;
+    // FMOD sound effect references
+    [Header("Sounds")]
+    [SerializeField] private FMODUnity.EventReference purchaseEvent;
+    [SerializeField] private FMODUnity.EventReference sellEvent;
+    [SerializeField] private FMODUnity.EventReference insufficientEvent;
 
-    public void LoadMoney(int amount)
+    private static readonly Color GAIN_COLOR = Color.green;
+    private static readonly Color LOSS_COLOR = Color.red;
+
+    private const int MAX_BALANCE = 9999;
+    private const int MAX_EARN_AMOUNT = 256;
+
+    private const int MAX_REP_GAIN_ON_SELL = 10;
+    private const int MAX_REP_GAIN_ON_PURCHASE = 25;
+
+    private Notification _notification;
+    private Reputation _reputation;
+
+    private void Awake()
     {
-        money.SetValue(Mathf.Clamp(amount, 0, 9999));
-        moneyTxt.text = money.GetValue().ToString("C");
+        _notification = Notification.Instance;
+        _reputation = Reputation.Instance;
+    }
+
+    public void LoadSavedBalance(int amount)
+    {
+        SetBalance(amount);
     }
 
     public void Earn(int amount)
     {
-        int addAmount = Mathf.Clamp(amount, 0, 256);
+        if (amount <= 0)
+        {
+            LogicLogger.Warning(this, "Attempted to earn a non-positive amount.");
+            return;
+        }
 
-        int value = money.GetValue();
-        value += Mathf.Clamp(addAmount, 0, 9999 - (value + addAmount));
-        money.SetValue(value);
+        // Capped to 256 to prevent cheating in large amounts
+        int amountEarned = Mathf.Clamp(amount, 0, MAX_EARN_AMOUNT);
+        int newBalance = Mathf.Clamp(Balance + amountEarned, 0, MAX_BALANCE);
 
-        moneyTxt.text = money.GetValue().ToString("C");
-
-        Notification.Instance.Send("+" + amount.ToString("C"), Color.green);
+        SetBalance(newBalance);
+        _notification.Send($"+{amountEarned:C}", GAIN_COLOR);
     }
 
     public void Spend(int amount)
     {
-        int value = money.GetValue();
-        value -= Mathf.Clamp(amount, 0, value);
-        money.SetValue(value);
+        if (amount <= 0)
+        {
+            LogicLogger.Warning(this, "Attempted to spend a non-positive amount.");
+            return;
+        }
 
-        moneyTxt.text = money.GetValue().ToString("C");
+        if (amount > Balance)
+        {
+            InsufficientFunds();
+            return;
+        }
 
-        Notification.Instance.Send("-" + amount.ToString("C"), Color.red);
+        SetBalance(Balance - amount);
+        _notification.Send($"-{amount:C}", LOSS_COLOR);
     }
 
     public void InsufficientFunds()
     {
         EmitOneShot2D.Play(insufficientEvent);
-        Notification.Instance.Send("Insufficient Funds", Color.red);
+        _notification.Send("Insufficient Funds", LOSS_COLOR);
     }
 
-    public void SellHeldItem()
+    public void SellCurrentlyHeldItem()
     {
-        if (inventory.selectedItem && inventory._currentHeldItem != null)
+        if (playerInventory == null || !playerInventory.HasSelectedItem || playerInventory.currentHeldItem == null)
         {
-            GameObject item = inventory._currentHeldItem;
-            int sellValue = item.GetComponent<ItemController>().item.sellValue;
+            LogicLogger.Warning(this, "Attempted to sell held item but no item was found.");
+            return;
+        }
+
+        GameObject heldItem = playerInventory.currentHeldItem;
+        if (heldItem.TryGetComponent<ItemController>(out ItemController itemController))
+        {
+            int sellValue = itemController.item.sellValue;
+
             if (sellValue > 0)
             {
-                Earn(sellValue);
-                inventory.DeleteCurrentHeldItem();
-                Destroy(item);
-                EmitOneShot2D.Play(sellEvent);
-
-                Reputation.Instance.GainRep(lastMerchant, Mathf.Clamp(sellValue, 1, 10));
+                ProcessItemSale(sellValue, heldItem);
             }
+        }
+        else
+        {
+            LogicLogger.Warning(this, $"{heldItem.name} does not have an ItemController component.");
         }
     }
 
-    public void BuyItem(int itemID, int cost)
+    private void ProcessItemSale(int sellValue, GameObject item)
     {
-        bool hasSpace = loot.PlaceItemInSpace(itemID, inventory, false);
+        Earn(sellValue);
+        playerInventory.DeleteCurrentHeldItem();
+        Destroy(item);
+        EmitOneShot2D.Play(sellEvent);
 
-        if (hasSpace)
+        // Capped at 10 so expensive items have a max rep gain
+        _reputation.GainRep(mostRecentMerchant, Mathf.Clamp(sellValue, 1, MAX_REP_GAIN_ON_SELL));
+    }
+
+    public void PurchaseItem(int itemID, int cost)
+    {
+        if (cost > Balance)
+        {
+            InsufficientFunds();
+            return;
+        }
+
+        bool hasSpaceForItem = lootManager.PlaceItemInSpace(itemID, playerInventory, false);
+        if (hasSpaceForItem)
         {
             Spend(cost);
             EmitOneShot2D.Play(purchaseEvent);
-            Reputation.Instance.GainRep(lastMerchant, Mathf.Clamp(cost, 1, 25));
+
+            // Higher cap to allow for larger rep gain comapred to purchasing items
+            _reputation.GainRep(mostRecentMerchant, Mathf.Clamp(cost, 1, MAX_REP_GAIN_ON_PURCHASE));
         }
+    }
+
+    private void SetBalance(int amount)
+    {
+        money.SetValue(Mathf.Clamp(amount, 0, MAX_BALANCE));
+        RefreshBalanceUI();
+    }
+
+    private void RefreshBalanceUI()
+    {
+        balanceText.text = Balance.ToString("C");
     }
 }
