@@ -1,4 +1,4 @@
-# 🎮 Leland Carter's Game Dev Portfolio  
+# 🎮 Leland Carter's Coding Portfolio  
 Welcome to my coding portfolio! This repository contains a collection of **C#** projects built using the **Unity Engine** and **.NET/Mono**. These samples showcase various gameplay mechanics, tools, and experiments I've worked on. Feel free to explore, learn from, or expand upon them!  
 
 ## 🚀 About Me  
